@@ -8,6 +8,11 @@ import {
   deleteUser,
   getAllUsers,
   
+  // Clerk-based operations
+  getUserByClerkId,
+  createUserWithClerk,
+  updateUserByClerkId,
+  
   // Project operations
   addProject,
   updateProject,
@@ -35,6 +40,11 @@ router.get("/:id", getUser);
 router.get("/email/:email", getUserByEmail);
 router.put("/:id", updateUser);
 router.delete("/:id", deleteUser);
+
+// Clerk-based Routes
+router.post("/clerk", createUserWithClerk);
+router.get("/clerk/:clerkUserId", getUserByClerkId);
+router.put("/clerk/:clerkUserId", updateUserByClerkId);
 
 // Project Routes
 router.post("/:id/projects", addProject);

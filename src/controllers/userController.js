@@ -235,4 +235,64 @@ export const getAllUsers = async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: "Error fetching users", error: error.message });
   }
+};
+
+// Clerk-based user operations
+export const getUserByClerkId = async (req, res) => {
+  try {
+    console.log('🔍 Looking for user with Clerk ID:', req.params.clerkUserId);
+    const user = await User.findOne({ clerkUserId: req.params.clerkUserId });
+    if (!user) {
+      console.log('❌ User not found for Clerk ID:', req.params.clerkUserId);
+      return res.status(404).json({ message: "User not found" });
+    }
+    console.log('✅ Found user:', user.name, 'with Clerk ID:', req.params.clerkUserId);
+    res.json(user);
+  } catch (error) {
+    console.error('❌ Error fetching user:', error);
+    res.status(500).json({ message: "Error fetching user", error: error.message });
+  }
+};
+
+export const createUserWithClerk = async (req, res) => {
+  try {
+    const { clerkUserId, ...userData } = req.body;
+    console.log('📝 Creating user with Clerk ID:', clerkUserId);
+    console.log('📝 User data:', userData);
+    
+    // Check if user already exists
+    const existingUser = await User.findOne({ clerkUserId });
+    if (existingUser) {
+      console.log('❌ User already exists with Clerk ID:', clerkUserId);
+      return res.status(400).json({ message: "User already exists" });
+    }
+    
+    const user = new User({ clerkUserId, ...userData });
+    const savedUser = await user.save();
+    console.log('✅ Created user:', savedUser.name, 'with Clerk ID:', clerkUserId);
+    res.status(201).json(savedUser);
+  } catch (error) {
+    console.error('❌ Error creating user:', error);
+    if (error.code === 11000) {
+      res.status(400).json({ message: "User with this email or Clerk ID already exists" });
+    } else {
+      res.status(500).json({ message: "Error creating user", error: error.message });
+    }
+  }
+};
+
+export const updateUserByClerkId = async (req, res) => {
+  try {
+    const user = await User.findOneAndUpdate(
+      { clerkUserId: req.params.clerkUserId },
+      req.body,
+      { new: true, runValidators: true }
+    );
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ message: "Error updating user", error: error.message });
+  }
 }; 

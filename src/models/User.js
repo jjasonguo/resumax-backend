@@ -46,6 +46,12 @@ const workExperienceSubSchema = new mongoose.Schema({
 
 // Main user schema
 const userSchema = new mongoose.Schema({
+  clerkUserId: {
+    type: String,
+    required: true,
+    unique: true,
+    trim: true
+  },
   name: {
     type: String,
     required: true,
@@ -78,7 +84,6 @@ const userSchema = new mongoose.Schema({
 });
 
 // Create indexes for better performance
-userSchema.index({ email: 1 });
 userSchema.index({ "projects.skills": 1 });
 userSchema.index({ "workExperiences.skills": 1 });
 userSchema.index({ "workExperiences.company": 1 });
