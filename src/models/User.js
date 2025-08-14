@@ -77,6 +77,33 @@ const userSchema = new mongoose.Schema({
     min: 0.0,
     max: 4.0
   },
+  phone: {
+    type: String,
+    trim: true
+  },
+  linkedinUrl: {
+    type: String,
+    trim: true
+  },
+  githubUrl: {
+    type: String,
+    trim: true
+  },
+  websiteUrl: {
+    type: String,
+    trim: true
+  },
+  resumePdf: {
+    filename: String,
+    originalName: String,
+    uploadDate: Date
+  },
+  parsedResumeData: {
+    rawText: String,
+    extractedSkills: [String],
+    extractedEducation: [String],
+    extractedExperience: [String]
+  },
   projects: [projectSubSchema],
   workExperiences: [workExperienceSubSchema]
 }, {
