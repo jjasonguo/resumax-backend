@@ -39,42 +39,136 @@ const parseResumeContent = (text) => {
   
   const extractedData = {
     rawText: text,
+    name: '',
+    email: '',
+    phone: '',
+    linkedinUrl: '',
+    university: '',
+    gpa: '',
+    major: '',
     extractedSkills: [],
-    extractedEducation: [],
-    extractedExperience: []
+    extractedWorkExperience: [],
+    extractedProjects: []
   };
 
-  // Extract skills (look for common skill keywords)
-  const skillKeywords = [
-    'javascript', 'python', 'java', 'react', 'node.js', 'mongodb', 'sql', 'html', 'css',
-    'typescript', 'angular', 'vue', 'express', 'django', 'flask', 'aws', 'docker', 'kubernetes',
-    'git', 'agile', 'scrum', 'leadership', 'communication', 'problem solving', 'teamwork'
-  ];
+  let currentSection = '';
+  let currentExperience = null;
+  let currentProject = null;
 
-  lines.forEach(line => {
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
     const lowerLine = line.toLowerCase();
     
-    // Extract skills
-    skillKeywords.forEach(skill => {
-      if (lowerLine.includes(skill) && !extractedData.extractedSkills.includes(skill)) {
-        extractedData.extractedSkills.push(skill);
+    // Extract name from first line
+    if (i === 0 && !lowerLine.includes('|') && !lowerLine.includes('education')) {
+      extractedData.name = line;
+      continue;
+    }
+
+    // Extract contact info from second line
+    if (i === 1 && line.includes('|')) {
+      const parts = line.split('|').map(part => part.trim());
+      if (parts.length >= 4) {
+        // parts[0] = address, parts[1] = email, parts[2] = phone, parts[3] = linkedin
+        extractedData.email = parts[1];
+        extractedData.phone = parts[2];
+        extractedData.linkedinUrl = parts[3];
       }
-    });
-
-    // Extract education (look for degree keywords)
-    if (lowerLine.includes('bachelor') || lowerLine.includes('master') || 
-        lowerLine.includes('phd') || lowerLine.includes('degree') ||
-        lowerLine.includes('university') || lowerLine.includes('college')) {
-      extractedData.extractedEducation.push(line);
+      continue;
     }
 
-    // Extract experience (look for job-related keywords)
-    if (lowerLine.includes('experience') || lowerLine.includes('work') ||
-        lowerLine.includes('job') || lowerLine.includes('position') ||
-        lowerLine.includes('role') || lowerLine.includes('responsibilities')) {
-      extractedData.extractedExperience.push(line);
+    // Detect sections
+    if (lowerLine === 'education') {
+      currentSection = 'education';
+      continue;
     }
-  });
+    
+    if (lowerLine === 'relevant experience') {
+      currentSection = 'experience';
+      continue;
+    }
+    
+    if (lowerLine === 'projects') {
+      currentSection = 'projects';
+      continue;
+    }
+
+    // Parse education section
+    if (currentSection === 'education') {
+      // Look for university line (contains "University" and "GPA")
+      if (line.includes('University') && line.includes('GPA')) {
+        const universityMatch = line.match(/([^|]+)/);
+        if (universityMatch) {
+          extractedData.university = universityMatch[1].trim();
+        }
+        
+        const gpaMatch = line.match(/GPA:\s*([\d.]+)/);
+        if (gpaMatch) {
+          extractedData.gpa = gpaMatch[1];
+        }
+        continue;
+      }
+
+      // Look for major line (contains "Intended Major:")
+      if (line.includes('Intended Major:')) {
+        const majorMatch = line.match(/Intended Major:\s*(.+)/);
+        if (majorMatch) {
+          extractedData.major = majorMatch[1].trim();
+        }
+        continue;
+      }
+    }
+
+    // Parse work experience section
+    if (currentSection === 'experience') {
+      // Look for job titles (lines that contain " at " and end with year)
+      if (line.includes(' at ') && (line.includes('202') || line.includes('Present'))) {
+        if (currentExperience) {
+          extractedData.extractedWorkExperience.push(currentExperience);
+        }
+        
+        currentExperience = {
+          title: line,
+          bullets: []
+        };
+        continue;
+      }
+      
+      // Add bullet points to current experience
+      if (currentExperience && line.startsWith('●')) {
+        currentExperience.bullets.push(line.replace(/^●\s*/, ''));
+      }
+    }
+
+    // Parse projects section
+    if (currentSection === 'projects') {
+      // Look for project titles (lines that contain " | " and end with year)
+      if (line.includes(' | ') && (line.includes('202') || line.includes('Present'))) {
+        if (currentProject) {
+          extractedData.extractedProjects.push(currentProject);
+        }
+        
+        currentProject = {
+          title: line,
+          bullets: []
+        };
+        continue;
+      }
+      
+      // Add bullet points to current project
+      if (currentProject && line.startsWith('●')) {
+        currentProject.bullets.push(line.replace(/^●\s*/, ''));
+      }
+    }
+  }
+
+  // Add the last experience/project if exists
+  if (currentExperience) {
+    extractedData.extractedWorkExperience.push(currentExperience);
+  }
+  if (currentProject) {
+    extractedData.extractedProjects.push(currentProject);
+  }
 
   return extractedData;
 };
@@ -99,13 +193,27 @@ export const uploadResume = async (req, res) => {
     const pdfData = await pdf(dataBuffer);
     
     console.log('📄 PDF parsed successfully, text length:', pdfData.text.length);
+    console.log('📄 RAW PDF TEXT:');
+    console.log('='.repeat(80));
+    console.log(pdfData.text);
+    console.log('='.repeat(80));
 
     // Parse the content
     const parsedData = parseResumeContent(pdfData.text);
     
-    console.log('📄 Extracted skills:', parsedData.extractedSkills.length);
-    console.log('📄 Extracted education:', parsedData.extractedEducation.length);
-    console.log('📄 Extracted experience:', parsedData.extractedExperience.length);
+    console.log('📄 Extracted personal info:', {
+      name: parsedData.name,
+      email: parsedData.email,
+      phone: parsedData.phone,
+      linkedinUrl: parsedData.linkedinUrl
+    });
+    console.log('📄 Extracted education:', {
+      university: parsedData.university,
+      gpa: parsedData.gpa,
+      major: parsedData.major
+    });
+    console.log('📄 Extracted work experience:', parsedData.extractedWorkExperience.length, 'entries');
+    console.log('📄 Extracted projects:', parsedData.extractedProjects.length, 'entries');
 
     // Update user with resume data
     const updatedUser = await User.findOneAndUpdate(
