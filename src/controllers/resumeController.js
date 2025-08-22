@@ -142,8 +142,8 @@ const parseResumeContent = (text) => {
 
     // Parse projects section
     if (currentSection === 'projects') {
-      // Look for project titles (lines that contain " | " and end with year)
-      if (line.includes(' | ') && (line.includes('202') || line.includes('Present'))) {
+      // Look for project titles (lines that contain " | " or "|" and end with year)
+      if ((line.includes(' | ') || line.includes('|')) && (line.includes('202'))) {
         if (currentProject) {
           extractedData.extractedProjects.push(currentProject);
         }
