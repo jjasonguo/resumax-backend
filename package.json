@@ -4,7 +4,11 @@
   "main": "src/server.js",
   "scripts": {
     "dev": "nodemon src/server.js",
-    "start": "node src/server.js"
+    "start": "node src/server.js",
+    "monitor": "node monitor-rate-limits.js",
+    "logs": "node view-logs.js",
+    "logs:analyze": "node view-logs.js --analyze",
+    "emergency-stop": "node monitor-rate-limits.js --emergency-stop"
   },
   "type": "module",
   "keywords": [],
