@@ -8,7 +8,9 @@
     "monitor": "node monitor-rate-limits.js",
     "logs": "node view-logs.js",
     "logs:analyze": "node view-logs.js --analyze",
-    "emergency-stop": "node monitor-rate-limits.js --emergency-stop"
+    "emergency-stop": "node monitor-rate-limits.js --emergency-stop",
+    "test:rate-limits": "node test-rate-limits.js",
+    "test:models": "node test-model-compatibility.js"
   },
   "type": "module",
   "keywords": [],

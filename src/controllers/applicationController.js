@@ -265,11 +265,18 @@ const retryOpenAIRequest = async (apiCall, maxRetries = RATE_LIMIT_CONFIG.maxRet
         logApiError(error, { attempt: attempt + 1, maxRetries });
         
         if (error.status === 429) {
-          // Rate limit error
-          const delay = calculateBackoffDelay(attempt);
-          console.log(`🔄 Rate limit hit, retrying in ${delay}ms...`);
-          await sleep(delay);
-          continue;
+          // Check if it's a rate limit vs quota issue
+          if (error.code === 'insufficient_quota') {
+            // Quota exceeded - this is a hard error, don't retry
+            updateApiUsage(false);
+            throw new Error('OpenAI quota exceeded. Please check your billing and plan details.');
+          } else {
+            // Rate limit error - retry with backoff
+            const delay = calculateBackoffDelay(attempt);
+            console.log(`🔄 Rate limit hit, retrying in ${delay}ms...`);
+            await sleep(delay);
+            continue;
+          }
         } else if (error.status === 402 || error.code === 'insufficient_quota') {
           // Quota exceeded - this is a hard error
           updateApiUsage(false);
@@ -282,6 +289,16 @@ const retryOpenAIRequest = async (apiCall, maxRetries = RATE_LIMIT_CONFIG.maxRet
             throw new Error('Request timeout after all retries');
           }
           continue;
+        } else if (error.code === 'unsupported_parameter') {
+          // Model-specific parameter error
+          console.log(`🚫 Unsupported parameter error: ${error.message}`);
+          updateApiUsage(false);
+          throw new Error(`Model parameter error: ${error.message}. This may be a model compatibility issue.`);
+        } else if (error.message.includes('temperature') || error.message.includes('Unsupported value')) {
+          // Temperature or value restriction error
+          console.log(`🌡️ Parameter restriction error: ${error.message}`);
+          updateApiUsage(false);
+          throw new Error(`Model restriction: ${error.message}. The o4-mini model has strict parameter requirements.`);
         } else if (attempt === maxRetries) {
           // Max retries reached
           updateApiUsage(false);
@@ -408,25 +425,68 @@ export const automateApplication = async (req, res) => {
     // Handle specific error types
     if (error.message.includes('quota exceeded')) {
       return res.status(429).json({ 
-        message: 'OpenAI quota exceeded. Please try again later or check your billing.',
-        error: error.message 
+        message: 'OpenAI quota exceeded. Please check your billing and plan details.',
+        error: error.message,
+        solution: 'This is not a rate limit issue - your OpenAI account has run out of credits. Please add funds to continue.',
+        errorType: 'quota_exceeded'
       });
     } else if (error.message.includes('limit exceeded') || error.message.includes('Circuit breaker')) {
       return res.status(429).json({ 
         message: error.message,
-        error: error.message 
+        error: error.message,
+        errorType: 'rate_limit'
       });
     } else if (error.message.includes('Queue is full')) {
       return res.status(503).json({ 
         message: 'Service temporarily unavailable. Please try again later.',
-        error: error.message 
+        error: error.message,
+        errorType: 'queue_full'
       });
     }
     
     res.status(500).json({ 
       message: 'Error automating application', 
-      error: error.message 
+      error: error.message,
+      errorType: 'general_error'
     });
+  }
+};
+
+// Helper function to get the correct token parameter for different models
+const getTokenParameter = (model) => {
+  // Models that use max_completion_tokens
+  const maxCompletionTokensModels = ['o4-mini', 'o4-mini-preview', 'o4o-mini'];
+  
+  // Models that use max_tokens
+  const maxTokensModels = ['gpt-4', 'gpt-3.5-turbo', 'gpt-4-turbo'];
+  
+  if (maxCompletionTokensModels.includes(model)) {
+    return { max_completion_tokens: 2000 };
+  } else if (maxTokensModels.includes(model)) {
+    return { max_tokens: 2000 };
+  } else {
+    // Default to max_tokens for unknown models
+    return { max_tokens: 2000 };
+  }
+};
+
+// Helper function to get model-specific parameters
+const getModelParameters = (model) => {
+  const baseParams = getTokenParameter(model);
+  
+  // o4-mini models have strict parameter requirements
+  if (model === 'o4-mini' || model === 'o4-mini-preview' || model === 'o4o-mini') {
+    return {
+      ...baseParams,
+      // o4-mini only supports default temperature (1), no custom values
+      // temperature: 1, // This is the default, so we can omit it
+    };
+  } else {
+    // GPT models support custom temperature
+    return {
+      ...baseParams,
+      temperature: 0.3,
+    };
   }
 };
 
@@ -462,8 +522,13 @@ Return your strategy as a JSON object with field mappings and instructions.
 `;
 
   return await retryOpenAIRequest(async () => {
+    const model = "o4-mini";
+    const modelParams = getModelParameters(model);
+    
+    console.log(`🔧 Using model: ${model} with parameters:`, modelParams);
+    
     const completion = await openai.chat.completions.create({
-      model: "o4-mini",
+      model: model,
       messages: [
         {
           role: "system",
@@ -474,8 +539,7 @@ Return your strategy as a JSON object with field mappings and instructions.
           content: prompt
         }
       ],
-      temperature: 0.3,
-      max_tokens: 2000, // Limit tokens to avoid hitting limits
+      ...modelParams, // Spread the model-specific parameters
     });
 
     return JSON.parse(completion.choices[0].message.content);
@@ -499,8 +563,8 @@ const executeApplication = async (jobUrl, strategy, user) => {
     console.log('🌐 Navigating to job application...');
     await page.goto(jobUrl, { waitUntil: 'networkidle2' });
 
-    // Wait for page to load
-    await page.waitForTimeout(2000);
+    // Wait for page to load (compatible with all Puppeteer versions)
+    await sleep(2000);
 
     // Execute the application strategy
     const result = await page.evaluate((strategy, user) => {
