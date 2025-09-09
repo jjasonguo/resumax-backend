@@ -2,7 +2,8 @@ import express from "express"
 import testRoutes from "./routes/testRoutes.js"
 import userRoutes from "./routes/userRoutes.js"
 import resumeRoutes from "./routes/resumeRoutes.js"
-import applicationRoutes from "./routes/applicationRoutes.js"
+import pageRoutes from "./routes/pageRoutes.js"
+import automationRoutes from "./routes/automationRoutes.js"
 import {connectDB} from "./config/db.js"
 import dotenv from "dotenv"
 import cors from "cors"
@@ -28,7 +29,8 @@ console.log(process.env.MONGO_URI);
 app.use("/api/test", testRoutes)
 app.use("/api/users", userRoutes)
 app.use("/api/resume", resumeRoutes)
-app.use("/api/application", applicationRoutes)
+app.use("/api/page", pageRoutes)
+app.use("/api/automation", automationRoutes)
 
 app.listen(PORT, () => {
     console.log("server started port:", PORT);
