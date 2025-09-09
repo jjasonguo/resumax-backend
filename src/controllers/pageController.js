@@ -3,6 +3,7 @@ import puppeteer from "puppeteer";
 export const fetchPageTitle = async (req, res) => {
   try {
     const { url } = req.body;
+    const keepOpen = String(req.query?.keepOpen ?? req.body?.keepOpen ?? "true").toLowerCase() === "true";
     if (!url || typeof url !== "string") {
       return res.status(400).json({ message: "A valid url is required" });
     }
@@ -21,11 +22,13 @@ export const fetchPageTitle = async (req, res) => {
       const page = await browser.newPage();
       await page.goto(targetUrl, { waitUntil: "domcontentloaded", timeout: 20000 });
       const title = await page.title();
-      await browser.close();
+      if (!keepOpen) {
+        await browser.close();
+      }
 
-      return res.json({ title });
+      return res.json({ title, keepOpen });
     } catch (err) {
-      await browser.close();
+      try { await browser.close(); } catch (_) {}
       throw err;
     }
   } catch (error) {
