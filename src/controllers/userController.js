@@ -295,4 +295,20 @@ export const updateUserByClerkId = async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: "Error updating user", error: error.message });
   }
+};
+
+export const getUserNameByClerkId = async (req, res) => {
+  try {
+    console.log('🔍 Getting user name for Clerk ID:', req.params.clerkUserId);
+    const user = await User.findOne({ clerkUserId: req.params.clerkUserId });
+    if (!user) {
+      console.log('❌ User not found for Clerk ID:', req.params.clerkUserId);
+      return res.status(404).json({ message: "User not found" });
+    }
+    console.log('✅ Found user name:', user.name, 'for Clerk ID:', req.params.clerkUserId);
+    res.json({ name: user.name });
+  } catch (error) {
+    console.error('❌ Error fetching user name:', error);
+    res.status(500).json({ message: "Error fetching user name", error: error.message });
+  }
 }; 

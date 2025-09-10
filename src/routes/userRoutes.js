@@ -12,6 +12,7 @@ import {
   getUserByClerkId,
   createUserWithClerk,
   updateUserByClerkId,
+  getUserNameByClerkId,
   
   // Project operations
   addProject,
@@ -44,6 +45,7 @@ router.delete("/:id", deleteUser);
 // Clerk-based Routes
 router.post("/clerk", createUserWithClerk);
 router.get("/clerk/:clerkUserId", getUserByClerkId);
+router.get("/clerk/:clerkUserId/name", getUserNameByClerkId);
 router.put("/clerk/:clerkUserId", updateUserByClerkId);
 
 // Project Routes
